@@ -1,0 +1,194 @@
+# Namespace for k8sgpt testing
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8sgpt
+  labels:
+    purpose: testing
+---
+# Deployment with runtime issues (not validation errors)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broken-app
+  namespace: k8sgpt
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: broken-app
+  template:
+    metadata:
+      labels:
+        app: broken-app
+    spec:
+      containers:
+      - name: main-container
+        image: nginx:nonexistent-tag  # Issue: Image doesn't exist - will cause ImagePullBackOff
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "200Mi"
+            cpu: "100m"
+          # Issue: No limits set - potential resource abuse
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://user:password@localhost:5432/db"  # Issue: Hardcoded credentials
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nonexistent-secret  # Issue: Secret doesn't exist - will cause pod failure
+              key: api-key
+      - name: sidecar-container
+        image: busybox:latest
+        command: ["sleep", "3600"]
+        resources:
+          requests:
+            memory: "50Mi"
+            cpu: "25m"
+          limits:
+            memory: "100Mi"
+            cpu: "50m"
+---
+# Service with mismatched selector
+apiVersion: v1
+kind: Service
+metadata:
+  name: broken-service
+  namespace: k8sgpt
+spec:
+  selector:
+    app: wrong-app-name  # Issue: Selector doesn't match any pods - no endpoints
+  ports:
+  - port: 80
+    targetPort: 8080     # Issue: Container exposes 80, service targets 8080
+    protocol: TCP
+  type: ClusterIP
+---
+# ConfigMap with problematic data
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: broken-config
+  namespace: k8sgpt
+data:
+  app.properties: |
+    database.host=localhost
+    database.port=5432
+    database.user=admin
+    database.password=admin123  # Issue: Sensitive data in ConfigMap
+    debug.level=true
+---
+# Pod with security issues
+apiVersion: v1
+kind: Pod
+metadata:
+  name: insecure-pod
+  namespace: k8sgpt
+  labels:
+    app: insecure
+spec:
+  containers:
+  - name: insecure-container
+    image: alpine:3.18
+    command: ["sleep", "3600"]
+    securityContext:
+      runAsUser: 0           # Issue: Running as root
+      privileged: true       # Issue: Privileged container
+      allowPrivilegeEscalation: true  # Issue: Allows privilege escalation
+    volumeMounts:
+    - name: host-root
+      mountPath: /host
+      readOnly: false        # Issue: Write access to host filesystem
+    resources:
+      requests:
+        memory: "1Gi"        # Issue: High memory request
+        cpu: "500m"          # Issue: High CPU request
+    env:
+    - name: API_TOKEN
+      value: "sk-1234567890abcdef"  # Issue: Hardcoded secret in env
+  volumes:
+  - name: host-root
+    hostPath:
+      path: /tmp             # Issue: Mounting host filesystem (safer than root)
+      type: Directory
+---
+# Persistent Volume Claim with issues
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: broken-pvc
+  namespace: k8sgpt
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Ti         # Issue: Unrealistic storage request
+  storageClassName: nonexistent-storage-class  # Issue: Storage class doesn't exist
+---
+# Job with problematic configuration
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: failing-job
+  namespace: k8sgpt
+spec:
+  backoffLimit: 0           # Issue: No retry attempts
+  activeDeadlineSeconds: 10 # Issue: Very short deadline
+  template:
+    spec:
+      restartPolicy: Never  # Valid restart policy
+      containers:
+      - name: job-container
+        image: ubuntu:20.04
+        command: ["bash", "-c", "exit 1"]  # Issue: Always fails
+        resources:
+          requests:
+            memory: "1Gi"    # Issue: Excessive memory for a simple job
+---
+# HorizontalPodAutoscaler with issues
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: broken-hpa
+  namespace: k8sgpt
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nonexistent-deployment  # Issue: Target deployment doesn't exist
+  minReplicas: 2
+  maxReplicas: 5            # Valid: Max > Min replicas
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50  # Valid percentage (changed from 150%)
+---
+# Network Policy with issues
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: broken-netpol
+  namespace: k8sgpt
+spec:
+  podSelector:
+    matchLabels:
+      app: nonexistent-app  # Issue: No pods match this selector
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          role: frontend
+    ports:
+    - protocol: TCP
+      port: 443           # Issue: Port 443 but pods likely run on 80
+  egress:
+  - to: []               # Issue: Blocks all egress traffic

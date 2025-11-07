@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdb-analyzer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pdb-analyzer
+  template:
+    metadata:
+      labels:
+        app: pdb-analyzer
+    spec:
+      serviceAccountName: pdb-analyzer-sa # We'll create this service account
+      containers:
+      - name: pdb-analyzer
+        image: deedeo/pdbanalyzer-checker:latest # Replace with your actual registry/image name
+        ports:
+        - containerPort: 8085
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pdb-analyzer-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pdb-analyzer-role
+rules:
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["list"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets"]
+  verbs: ["list"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
+  verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pdb-analyzer-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pdb-analyzer-role
+subjects:
+- kind: ServiceAccount
+  name: pdb-analyzer-sa
+  namespace: default
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pdb-analyzer
+  namespace: default
+spec:
+  selector:
+    app: pdb-analyzer
+  ports:
+    - protocol: TCP
+      port: 8085
+      targetPort: 8085

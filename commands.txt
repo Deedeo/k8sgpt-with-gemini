@@ -1,0 +1,11 @@
+step 1: create a cluster on gcloud
+ gcloud container clusters create gke-hackathon     --region us-central1     --spot     --num-nodes=1     --disk-type=pd-standard
+
+step 2: generate gemini-api on gcloud project using google AI studio for either exiting project or new project on gcloud
+GEMINI_API_KEY=''
+
+step 3:
+install k8sgpt as an operator or cli
+
+
+

@@ -1,0 +1,28 @@
+apiVersion: core.k8sgpt.ai/v1alpha1
+kind: K8sGPT
+metadata:
+  name: gemini
+  namespace: k8sgpt-operator-system
+spec:
+  ai:
+    enabled: true
+    model: gemini-2.0-flash-exp
+    backend: google
+    secret:
+      name: k8sgpt-secret
+      key: gemini-api-key
+    maxTokens: 2048
+    anonymized: true
+    autoRemediation:
+      enabled: false
+      resources:
+      - Pod
+      - Deployment
+      - Service
+      - Ingress
+    backOff:
+      enabled: false
+      maxRetries: 5
+  noCache: false
+  repository: ghcr.io/k8sgpt-ai/k8sgpt
+  version: v0.4.12

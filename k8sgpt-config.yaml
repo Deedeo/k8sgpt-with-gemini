@@ -1,0 +1,28 @@
+apiVersion: core.k8sgpt.ai/v1alpha1
+kind: K8sGPT
+metadata:
+  name: k8sgpt-with-pdb-analyzer
+  namespace: k8sgpt-operator-system
+spec:
+  ai:
+    enabled: true
+    model: gemini-2.0-flash
+    backend: google
+    secret:
+      name: k8sgpt-secret
+      key: api-key
+    language: english
+    autoRemediation:
+      enabled: false
+  
+  # Custom analyzers configuration
+  customAnalyzers:
+    - name: pdb-analyzer
+      connection:
+        url: pdb-analyzer.k8sgpt-system.svc.cluster.local # Service DNS name
+        port: 8085
+  
+  
+  noCache: false
+  repository: ghcr.io/k8sgpt-ai/k8sgpt
+  version: v0.4.12
