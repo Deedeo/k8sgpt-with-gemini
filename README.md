@@ -203,5 +203,5 @@ helm uninstall release -n k8sgpt-operator-system
 kubectl delete namespace k8sgpt-operator-system
 
 # Delete the GKE cluster
-gcloud container clusters delete devfest-location --region us-central1
+gcloud container clusters delete devfest-location --region us-central1-a
 ```
